@@ -5,3 +5,4 @@ out/
 [Oo]SX/
 dependencies/
 modules/
+*.log
