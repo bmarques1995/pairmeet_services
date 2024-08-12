@@ -1,9 +1,18 @@
 #include <drogon/drogon.h>
 
-using namespace drogon;
+
 int main(int argc, char** argv)
 {
-    app().setLogPath("./")
+    drogon::app().registerHandler(
+        "/",
+        [](const drogon::HttpRequestPtr&,
+            std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setBody("Hello, World!");
+                callback(resp);
+        },
+        { drogon::Get });
+    drogon::app().setLogPath("./")
          .setLogLevel(trantor::Logger::kWarn)
          .addListener("127.0.0.1", 8000)
          .setThreadNum(8)
