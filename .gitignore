@@ -4,5 +4,6 @@ out/
 [Ll]inux/
 [Oo]SX/
 dependencies/
+uploads/
 modules/
 *.log

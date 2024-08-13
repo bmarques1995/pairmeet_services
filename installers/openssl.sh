@@ -6,7 +6,9 @@ if [ "$1" == "Debug" ] || [ "$1" == "Release" ] && [ ! -z "$2" ] && [ ! -z "$3" 
     ./Configure "--${1,,}" --prefix="$2" --openssldir="$2/openssl" -shared zlib-dynamic --with-zlib-lib="$2/lib" --with-zlib-include="$2/include" --with-brotli-include="$2/include" --with-brotli-lib="$2/lib" enable-zstd-dynamic --with-zstd-lib="$2/lib" --with-zstd-include="$2/include"
     make -j6
     make install
-    cd ../..
+    cd "$2/lib"
+    mkdir "manifest"
+    echo "openssl own manifest" > "./manifest/openssl.txt"
 else
     echo "Invalid build type or install path. Please provide either 'Debug' or 'Release' and a valid prefix path"
 fi
