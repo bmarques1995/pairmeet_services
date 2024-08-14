@@ -103,6 +103,26 @@ int main(int argc, char** argv)
                 resp->setStatusCode(drogon::HttpStatusCode::k200OK);
                 callback(resp);
         }, { drogon::Get });
+
+    drogon::app().registerHandler(
+        "/db_sample_confirm",
+        [](const drogon::HttpRequestPtr&,
+            std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+                std::string url = "mysqlx://root:admin@127.0.0.1";
+                mysqlx::Session sess(url);
+                mysqlx::Schema sch= sess.getSchema("pairmeet");
+                mysqlx::Table tab = sch.getTable("Users", true);
+
+                tab.update()
+                    .set("VerifiedEmail", true)
+                    .where("Email = :email")
+                    .bind("email", "john.doe@example.com")
+                    .execute();
+
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setStatusCode(drogon::HttpStatusCode::k200OK);
+                callback(resp);
+        }, { drogon::Get });
     drogon::app().setLogPath("./")
          .setLogLevel(trantor::Logger::kWarn)
          .addListener("127.0.0.1", 8000)
