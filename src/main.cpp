@@ -7,7 +7,7 @@
 #include <json/json.h>
 #include <mysqlx/xdevapi.h>
 #include <mysqlx/xapi.h>
-
+#include <jwt-cpp/jwt.h>
 
 int main(int argc, char** argv)
 {
@@ -72,59 +72,113 @@ int main(int argc, char** argv)
         //38e05c33d7b067127f217d8c856e554fcff09c9320b8a5979ce2ff5d95dd27ba35d1fba50c562dfd1d6cc48bc9c5baa4390894418cc942d968f97bcb659419ed
     drogon::app().registerHandler(
         "/db_sample",
-        [](const drogon::HttpRequestPtr&,
+        [](const drogon::HttpRequestPtr& req,
             std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
                 std::string url = "mysqlx://root:admin@127.0.0.1";
                 mysqlx::Session sess(url);
                 mysqlx::Schema sch= sess.getSchema("pairmeet");
                 mysqlx::Table tab = sch.getTable("Users", true);
 
-                uint8_t hash[64] =
+                // Buffer to store the hash
+                uint8_t hash[EVP_MAX_MD_SIZE];
+                uint32_t hash_length;
+
+                Json::Value reqInfo;
+                Json::Reader reader;
+                std::string debugReq;
                 {
-                    0x38, 0xe0, 0x5c, 0x33, 0xd7, 0xb0, 0x67, 0x12,
-                    0x7f, 0x21, 0x7d, 0x8c, 0x85, 0x6e, 0x55, 0x4f,
-                    0xcf, 0xf0, 0x9c, 0x93, 0x20, 0xb8, 0xa5, 0x97,
-                    0x9c, 0xe2, 0xff, 0x5d, 0x95, 0xdd, 0x27, 0xba,
-                    0x35, 0xd1, 0xfb, 0xa5, 0x0c, 0x56, 0x2d, 0xfd,
-                    0x1d, 0x6c, 0xc4, 0x8b, 0xc9, 0xc5, 0xba, 0xa4,
-                    0x39, 0x08, 0x94, 0x41, 0x8c, 0xc9, 0x42, 0xd9,
-                    0x68, 0xf9, 0x7b, 0xcb, 0x65, 0x94, 0x19, 0xed
-                };
+                    debugReq = req->body().data();
+                    reader.parse(req->body().data(), reqInfo);
+                }
+                {
+                    // Create a context for the digest operation
+                    EVP_MD_CTX *mdctx = EVP_MD_CTX_new();
 
-                std::string binaryData(reinterpret_cast<const char*>(hash), 64);
+                    std::string password = reqInfo["Password"].asString();
 
-                bool verified = false;
+                    if (mdctx == NULL) {
+                        std::cerr << "Failed to create context" << std::endl;
+                    }
 
-                tab.insert("Name", "Email", "Password", "VerifiedEmail", "Locale")
-                .values("John Doe", "john.doe@example.com", mysqlx::bytes(hash, 64), false, "en_US")
-                .execute();
+                    // Initialize the digest operation with SHA3-512
+                    if (EVP_DigestInit_ex(mdctx, EVP_sha3_512(), NULL) != 1) {
+                        std::cerr << "Failed to initialize digest" << std::endl;
+                        EVP_MD_CTX_free(mdctx);
+                    }
 
-                auto resp = drogon::HttpResponse::newHttpResponse();
-                resp->setStatusCode(drogon::HttpStatusCode::k200OK);
-                callback(resp);
-        }, { drogon::Get });
+                    // Update the context with the message
+                    if (EVP_DigestUpdate(mdctx, password.c_str(), password.length()) != 1) {
+                        std::cerr << "Failed to update digest" << std::endl;
+                        EVP_MD_CTX_free(mdctx);
+                    }
+
+                    // Finalize the digest operation and obtain the hash
+                    if (EVP_DigestFinal_ex(mdctx, hash, &hash_length) != 1) {
+                        std::cerr << "Failed to finalize digest" << std::endl;
+                        EVP_MD_CTX_free(mdctx);
+                    }
+                    EVP_MD_CTX_free(mdctx);
+                }
+                try
+                {
+                    mysqlx::Result res = tab.insert("Name", "Email", "Password", "VerifiedEmail", "Locale")
+                    .values(reqInfo["Name"].asString(), reqInfo["Email"].asString(), mysqlx::bytes(hash, 64), false, "ja_JP")
+                    .execute();
+
+                    auto token = jwt::create()
+                        .set_type("JWS")
+                        .set_issuer("auth0")
+                        .set_payload_claim("Email", jwt::claim(reqInfo["Email"].asString()))
+                        .sign(jwt::algorithm::hs256{"secret"});
+
+                    auto resp = drogon::HttpResponse::newHttpResponse();
+                    std::string host = "http://";
+                    host.append(req->getHeader("Host"));
+                    host.append("/db_sample_confirm/");
+                    host.append(token.data());
+                    resp->setStatusCode(drogon::HttpStatusCode::k200OK);
+                    resp->setBody(host);
+                    callback(resp);
+                }
+                catch(const mysqlx::Error &err)
+                {
+                    auto resp = drogon::HttpResponse::newHttpResponse();
+                    resp->setStatusCode(drogon::HttpStatusCode::k502BadGateway);
+                    resp->setBody(err.what());
+                    callback(resp);
+                }
+        }, { drogon::Post });
 
     drogon::app().registerHandler(
-        "/db_sample_confirm",
+        "/db_sample_confirm/{token}",
         [](const drogon::HttpRequestPtr&,
-            std::function<void(const drogon::HttpResponsePtr&)>&& callback) {
+            std::function<void(const drogon::HttpResponsePtr&)>&& callback, const std::string &token) {
                 std::string url = "mysqlx://root:admin@127.0.0.1";
                 mysqlx::Session sess(url);
                 mysqlx::Schema sch= sess.getSchema("pairmeet");
                 mysqlx::Table tab = sch.getTable("Users", true);
+
+                std::string decoded = jwt::decode(token).get_payload();
+
+                Json::Value reqInfo;
+                Json::Reader reader;
+                reader.parse(decoded, reqInfo);
+
+                std::string email = reqInfo["Email"].asString();
 
                 tab.update()
                     .set("VerifiedEmail", true)
                     .where("Email = :email")
-                    .bind("email", "john.doe@example.com")
+                    .bind("email", email)
                     .execute();
 
                 auto resp = drogon::HttpResponse::newHttpResponse();
                 resp->setStatusCode(drogon::HttpStatusCode::k200OK);
                 callback(resp);
-        }, { drogon::Get });
+        }, { drogon::Put });
     drogon::app().setLogPath("./")
          .setLogLevel(trantor::Logger::kWarn)
+         //.setSSLFiles()
          .addListener("127.0.0.1", 8000)
          .setThreadNum(8)
          .run();

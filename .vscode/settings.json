@@ -1,4 +1,8 @@
 {
     "cmake.configureOnOpen": false,
-    "cmake.configureOnEdit": false
+    "cmake.configureOnEdit": false,
+    "files.associations": {
+        "*.tcc": "cpp",
+        "regex": "cpp"
+    }
 }
