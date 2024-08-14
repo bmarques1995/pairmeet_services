@@ -91,10 +91,12 @@ int main(int argc, char** argv)
                     0x68, 0xf9, 0x7b, 0xcb, 0x65, 0x94, 0x19, 0xed
                 };
 
+                std::string binaryData(reinterpret_cast<const char*>(hash), 64);
+
                 bool verified = false;
 
                 tab.insert("Name", "Email", "Password", "VerifiedEmail", "Locale")
-                .values("John Doe", "john.doe@example.com", "hashed_password_here", false, "en_US")
+                .values("John Doe", "john.doe@example.com", mysqlx::bytes(hash, 64), false, "en_US")
                 .execute();
 
                 auto resp = drogon::HttpResponse::newHttpResponse();
