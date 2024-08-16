@@ -20,6 +20,8 @@ trace_installable_file(NAME "libjsoncpp" INSTALL_SCRIPT "${PROJECT_SOURCE_DIR}/i
 find_package(jsoncpp)
 trace_dependency(NAME "nlohmann_json" INSTALL_SCRIPT ${PROJECT_SOURCE_DIR}/installers/nlohmann_json.sh)
 trace_dependency(NAME "jwt-cpp" INSTALL_SCRIPT ${PROJECT_SOURCE_DIR}/installers/jwt.sh)
+trace_dependency(NAME "Boost" COMPONENTS System date_time regex unit_test_framework INSTALL_SCRIPT ${PROJECT_SOURCE_DIR}/installers/boost.sh)
+trace_dependency(NAME "mailio" INSTALL_SCRIPT ${PROJECT_SOURCE_DIR}/installers/mailio.sh)
 trace_installable_file(NAME "libdrogon" INSTALL_SCRIPT "${PROJECT_SOURCE_DIR}/installers/drogon.sh" LOCATION "${CMAKE_PREFIX_PATH}/lib" EXTENSION "so")
 find_package(Drogon)
 
@@ -27,5 +29,5 @@ file(GLOB_RECURSE SAMPLE_HDRS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.hpp")
 file(GLOB_RECURSE SAMPLE_SRCS RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} "src/*.cpp")
 
 add_executable(SampleServer ${SAMPLE_SRCS})
-target_link_libraries(SampleServer PUBLIC Drogon::Drogon OpenSSL::Crypto jsoncpp_lib mysql::concpp-xdevapi jwt-cpp::jwt-cpp)
+target_link_libraries(SampleServer PUBLIC Drogon::Drogon OpenSSL::Crypto jsoncpp_lib mysql::concpp-xdevapi jwt-cpp::jwt-cpp mailio)
 set_cxx_project_standards(SampleServer "20" OFF)

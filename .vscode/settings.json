@@ -3,6 +3,12 @@
     "cmake.configureOnEdit": false,
     "files.associations": {
         "*.tcc": "cpp",
-        "regex": "cpp"
+        "regex": "cpp",
+        "any": "cpp",
+        "optional": "cpp",
+        "variant": "cpp",
+        "*.ipp": "cpp",
+        "ostream": "cpp",
+        "*.inc": "cpp"
     }
 }

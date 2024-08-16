@@ -8,6 +8,8 @@
 #include <mysqlx/xdevapi.h>
 #include <mysqlx/xapi.h>
 #include <jwt-cpp/jwt.h>
+#include <mailio/message.hpp>
+#include <mailio/smtp.hpp>
 
 int main(int argc, char** argv)
 {
@@ -121,6 +123,10 @@ int main(int argc, char** argv)
                 }
                 try
                 {
+                    mailio::smtps conn("smtp.gmail.com", 465);
+                    // modify username/password to use real credentials
+                    conn.authenticate("pairmeetdev@gmail.com", "vvmwctbkcixgqrxy", mailio::smtps::auth_method_t::LOGIN);
+
                     mysqlx::Result res = tab.insert("Name", "Email", "Password", "VerifiedEmail", "Locale")
                     .values(reqInfo["Name"].asString(), reqInfo["Email"].asString(), mysqlx::bytes(hash, 64), false, "ja_JP")
                     .execute();
@@ -136,6 +142,32 @@ int main(int argc, char** argv)
                     host.append(req->getHeader("Host"));
                     host.append("/db_sample_confirm/");
                     host.append(token.data());
+
+                    mailio::codec::line_len_policy_t lenghtLine;
+                    lenghtLine = mailio::codec::line_len_policy_t::VERYLARGE;
+                    std::string msgContent = R"(Host: )";
+                    msgContent.append(host);
+                    // create mail message
+                    mailio::message msg;
+                    msg.from(mailio::mail_address("Pairmeet Dev", "pairmeetdev@gmail.com"));// set the correct sender name and address
+                    msg.add_recipient(mailio::mail_address(reqInfo["Name"].asString(), reqInfo["Email"].asString()));// set the correct recipent name and address
+                    msg.subject("smtps multipart message");
+                    //msg.boundary("012456789@mailio.dev");
+                    msg.content_type(mailio::message::media_type_t::TEXT, "html", "utf-8");
+                    msg.line_policy(lenghtLine, lenghtLine);
+                    msg.content(msgContent);
+
+                    /*mailio::mime title;
+                    title.content_type(mailio::message::media_type_t::TEXT, "html", "utf-8");
+                    title.content_transfer_encoding(mailio::mime::content_transfer_encoding_t::BIT_8);
+                    title.content("<html><head></head><body><h1>Senior Call</h1></body></html>");
+
+                    msg.add_part(title);*/
+
+                    // connect to server
+                    
+                    conn.submit(msg);
+
                     resp->setStatusCode(drogon::HttpStatusCode::k200OK);
                     resp->setBody(host);
                     callback(resp);
@@ -145,6 +177,20 @@ int main(int argc, char** argv)
                     auto resp = drogon::HttpResponse::newHttpResponse();
                     resp->setStatusCode(drogon::HttpStatusCode::k502BadGateway);
                     resp->setBody(err.what());
+                    callback(resp);
+                }
+                catch (mailio::smtp_error& exc)
+                {
+                    auto resp = drogon::HttpResponse::newHttpResponse();
+                    resp->setStatusCode(drogon::HttpStatusCode::k502BadGateway);
+                    resp->setBody(exc.what());
+                    callback(resp);
+                }
+                catch (mailio::dialog_error& exc)
+                {
+                    auto resp = drogon::HttpResponse::newHttpResponse();
+                    resp->setStatusCode(drogon::HttpStatusCode::k502BadGateway);
+                    resp->setBody(exc.what());
                     callback(resp);
                 }
         }, { drogon::Post });
@@ -182,4 +228,5 @@ int main(int argc, char** argv)
          .addListener("127.0.0.1", 8000)
          .setThreadNum(8)
          .run();
+    return 0;
 }
