@@ -21,6 +21,17 @@
                 "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "service debug lldb",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/Linux/Debug/bin/SampleServer",
+            "args": [],
+            "stopOnEntry": false,
+            "cwd": "${workspaceFolder}",
+            "env": {},
+            "preLaunchTask": "build-clang"
         }
     ]
 }

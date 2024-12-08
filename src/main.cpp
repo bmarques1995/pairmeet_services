@@ -222,6 +222,36 @@ int main(int argc, char** argv)
                 resp->setStatusCode(drogon::HttpStatusCode::k200OK);
                 callback(resp);
         }, { drogon::Put });
+    drogon::app().registerHandler(
+        "/google_sample?code={code}&scope={scope}&authuser={authuser}&prompt={prompt}",
+        [](const drogon::HttpRequestPtr&,
+            std::function<void(const drogon::HttpResponsePtr&)>&& callback,
+            const std::string &code,
+            const std::string &scope,
+            const std::string &authuser,
+            const std::string &prompt) {
+                // Make the HTTP request
+                drogon::HttpClientPtr client = drogon::HttpClient::newHttpClient("http://jsonplaceholder.typicode.com");
+                auto request = drogon::HttpRequest::newHttpRequest();
+                request->setMethod(drogon::Get);
+                request->setPath("/posts/1");
+
+                client->sendRequest(request, [](drogon::ReqResult result, const drogon::HttpResponsePtr &response) {
+                    if (result == drogon::ReqResult::Ok && response) {
+                        // Successfully received a response
+                        std::cout << "Response status code: " << response->getStatusCode() << std::endl;
+                        std::cout << "Response body: " << response->getBody() << std::endl;
+                    } else {
+                        // Error occurred during the request
+                        std::cerr << "Error: Request failed with result " << result << std::endl;
+                    }
+                    // Terminate the event loop after handling the response
+                    drogon::app().quit();
+                });
+                auto resp = drogon::HttpResponse::newHttpResponse();
+                resp->setStatusCode(drogon::HttpStatusCode::k200OK);
+                callback(resp);
+        }, { drogon::Get });
     drogon::app().setLogPath("./")
          .setLogLevel(trantor::Logger::kWarn)
          //.setSSLFiles()

@@ -11,6 +11,17 @@
             },
             "problemMatcher": ["$gcc"],
             "detail": "Build your project using CMake"
+        },
+        {
+            "label": "build-clang",
+            "type": "shell",
+            "command": "cmake --build ${workspaceFolder}/out/build/linux-debug-clang",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "Build your project using CMake"
         }
     ]
 }
